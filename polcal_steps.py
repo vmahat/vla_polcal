@@ -1,20 +1,96 @@
 #Re-apply calibration tables, but now setting parang=False
-msin="24B-425.sb47044525.eb47312503.60639.24434767361.ms"
-msout='24B-425_C_calib_polcal.ms'
-msout_target='24B-425_C_calib_polcal_3C20.ms'
-band='C'
-all_spws='0~47'
-band_spws='16~47'
-final_spws='0~31'
-sources='3C20,3C147,3C138,J0102+5824'
-cal_leakage='3C147'
-cal_polangle='3C138'
-cal_phase='J0102+5824'
-cal_leakage_newgains=cal_leakage+'new_phases.tbl'
-target='3C20'
+import os
+import subprocess
+import logging
+import sys
+#import astropy
+import matplotlib.pyplot as plt
+import ast
+import csv
+
+def load_calibration_config(config_path):
+    config = {}
+    with open(config_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue  # Skip empty lines and comments
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            try:
+                config[key] = ast.literal_eval(value)
+            except Exception as e:
+                raise ValueError(f"Failed to parse line: {line}\n{e}")
+    return config
+
+if len(sys.argv) < 6:
+    print("Usage: python vla_polcal.py <msin> <msout> <msout_target> <output_dir> <config_file.py>")
+    sys.exit(1)
+
+msfile = sys.argv[1]
+msout = sys.argv[2]
+msout_target = sys.argv[3]
+output_dir = sys.argv[4]
+config_file = sys.argv[5]
+
+#msin="24B-425.sb47044525.eb47312503.60639.24434767361.ms"
+#msout='24B-425_C_calib_polcal.ms'
+#msout_target='24B-425_C_calib_polcal_3C20.ms'
+
+config = load_calibration_config(config_file)
+
+band = config.get("band")
+all_spws = config.get("all_spws")
+band_spws = config.get("band_spws")
+final_spws = config.get("final_spws")
+sources = config.get("sources")
+cal_leakage = config.get("cal_leakage")
+cal_polangle = config.get("cal_polangle")
+cal_leakage_newgains = config.get("cal_leakage_newgains")
+target = config.get("target")
+
+""" #is this needed?
+with open(config_file, 'r') as f:
+    reader = csv.reader(f)
+    for row in reader:
+        if not row or row[0].startswith("#"):
+            continue  # skip comments/empty lines
+        band = row[0].strip()
+        all_spws = row[1].strip() if len(row) > 1 else ""
+        band_spws = row[2].strip() if len(row) > 2 else ""
+        final_spws = row[3].strip() if len(row) > 3 else ""
+        sources = row[4].strip() if len(row) > 4 else ""
+        cal_leakage = row[5].strip() if len(row) > 5 else ""
+        cal_polangle = row[6].strip() if len(row) > 6 else ""
+        cal_phase = row[7].strip() if len(row) > 7 else ""
+        cal_leakage_newgains = row[8].strip() if len(row) > 8 else ""
+        target = row[9].strip() if len(row) > 9 else ""
+
+        solution_intervals.append(solint)
+        solution_type.append(soltype)
+        solution_mode.append(solmode)
+"""
+casa_path = "/soft/casa-latest/bin/casa"
+
+def run_command(cmd, shell=False):
+	try:
+		logger.info(f"Running: {' '.join(cmd) if isinstance(cmd, list) else cmd}")
+		subprocess.run(cmd, shell=shell, check=True)
+	except subprocess.CalledProcessError as e:
+		logger.error(f"Command failed: {e}")
+		raise
+
+# Function to run CASA commands
+def run_casa_command(casa_script):
+	casa_cmd = f"{casa_path} --nogui -c {casa_script}"
+	run_command(casa_cmd, shell=True)
+
 
 applycal(vis=msin, field=sources, intent='CALIBRATE_POL_ANGLE#UNSPECIFIED,SYSTEM_CONFIGURATION#UNSPECIFIED,OBSERVE_TARGET#UNSPECIFIED,CALIBRATE_POL_LEAKAGE#UNSPECIFIED,CALIBRATE_BANDPASS#UNSPECIFIED,CALIBRATE_AMPLI#UNSPECIFIED,CALIBRATE_PHASE#UNSPECIFIED', 
-spw='0~47', antenna='0~26', gaintable=[msin+'.hifv_priorcals.s5_2.gc.tbl', 
+spw=all_spws, antenna='0~26', gaintable=[msin+'.hifv_priorcals.s5_2.gc.tbl', 
 msin+'.hifv_priorcals.s5_3.opac.tbl', 
 msin+'.hifv_priorcals.s5_4.rq.tbl', 
 msin+'.hifv_finalcals.s13_2.finaldelay.tbl', 
@@ -72,7 +148,7 @@ timedevscale=4.0, freqdevscale=4.0, action='apply', flagbackup=True, savepars=Tr
 statwt(vis=msin,minsamp=8,datacolumn='corrected')
 
 #Split parallel-hand calibration to new MS
-split(vis=msin,outputvis=msout,	datacolumn='corrected',spw='16~47')
+split(vis=msin,outputvis=msout,	datacolumn='corrected',spw=band_spws)
 
 #ea11 has some bad data for 3C123
 #flagdata(vis=msout, antenna='ea11&ea22', spw='0~2')
@@ -240,3 +316,16 @@ split(vis=msout,outputvis=msout_target,
 	datacolumn='corrected',field=target)
 
 statwt(vis=msout_target,datacolumn='data',minsamp=8)
+
+	"""
+script_path = f"{output_dir}/casa_polcal.py"
+with open(script_path, "w") as f:
+	f.write(casa_script)
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("polcal")
+# Run CASA script for calibration
+run_casa_command(script_path)
+
+logger.info("Pol cal completed successfully!")
