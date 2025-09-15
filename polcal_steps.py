@@ -88,6 +88,8 @@ def run_casa_command(casa_script):
 	casa_cmd = f"{casa_path} --nogui -c {casa_script}"
 	run_command(casa_cmd, shell=True)
 
+os.system(casa_path)
+os.chdir(output_dir)
 
 applycal(vis=msin, field=sources, intent='CALIBRATE_POL_ANGLE#UNSPECIFIED,SYSTEM_CONFIGURATION#UNSPECIFIED,OBSERVE_TARGET#UNSPECIFIED,CALIBRATE_POL_LEAKAGE#UNSPECIFIED,CALIBRATE_BANDPASS#UNSPECIFIED,CALIBRATE_AMPLI#UNSPECIFIED,CALIBRATE_PHASE#UNSPECIFIED', 
 spw=all_spws, antenna='0~26', gaintable=[msin+'.hifv_priorcals.s5_2.gc.tbl', 
