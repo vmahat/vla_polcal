@@ -51,6 +51,7 @@ band_spws = config.get("band_spws")
 final_spws = config.get("final_spws")
 sources = config.get("sources")
 cal_leakage = config.get("cal_leakage")
+cal_leakage_im = config.get("cal_leakage_im")
 cal_polangle = config.get("cal_polangle")
 cal_leakage_newgains = config.get("cal_leakage_newgains")
 target = config.get("target")
@@ -112,38 +113,41 @@ gainfield=['', '', '', '', '', '', '', ''],
 spwmap=[[], [], [], [], [], [], [], []], interp=['', '', '', '', 'linear,linearflag', '', '', ''], 
 parang=False, applymode='calflagstrict', flagbackup=False)
 
-#Now set the model for 3C147 as the pipeline did not do this
-setjy(vis='{msin}', field='{cal_leakage}', standard='Perley-Butler 2017', 
-	model='{cal_leakage}_'+band+'.im', usescratch=True, scalebychan=True)
+if {cal_leakage_newgains}:
+	#Now set the model for 3C147 as the pipeline did not do this
+	setjy(vis='{msin}', field='{cal_leakage}', standard='Perley-Butler 2017', 
+		model='{cal_leakage_im}', usescratch=True, scalebychan=True)
 
-#Calibrate on 3C147 as it's resolved, carrying previous caltables
-gaincal(vis='{msin}', caltable='{cal_leakage_newgains}', field='{cal_leakage}', 
-	refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
-	spw='', gaintype='G',calmode='p', solint='int',
-	gaintable=['{msin}.hifv_priorcals.s5_2.gc.tbl', 
-'{msin}.hifv_priorcals.s5_3.opac.tbl', 
-'{msin}.hifv_priorcals.s5_4.rq.tbl', 
-'{msin}.hifv_finalcals.s13_2.finaldelay.tbl', 
-'{msin}.hifv_finalcals.s13_4.finalBPcal.tbl', 
-'{msin}.hifv_finalcals.s13_5.averagephasegain.tbl', 
-'{msin}.hifv_finalcals.s13_7.finalampgaincal.tbl', 
-'{msin}.hifv_finalcals.s13_8.finalphasegaincal.tbl'])
+	#Calibrate on 3C147 as it's resolved, carrying previous caltables
+	gaincal(vis='{msin}', caltable='{cal_leakage_newgains}', field='{cal_leakage}', 
+		refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
+		spw='', gaintype='G',calmode='p', solint='int',
+		gaintable=['{msin}.hifv_priorcals.s5_2.gc.tbl', 
+	'{msin}.hifv_priorcals.s5_3.opac.tbl', 
+	'{msin}.hifv_priorcals.s5_4.rq.tbl', 
+	'{msin}.hifv_finalcals.s13_2.finaldelay.tbl', 
+	'{msin}.hifv_finalcals.s13_4.finalBPcal.tbl', 
+	'{msin}.hifv_finalcals.s13_5.averagephasegain.tbl', 
+	'{msin}.hifv_finalcals.s13_7.finalampgaincal.tbl', 
+	'{msin}.hifv_finalcals.s13_8.finalphasegaincal.tbl'])
 
-#now apply with the 3C147 new gain solutions
-applycal(vis='{msin}', field='{sources}',intent='CALIBRATE_POL_ANGLE#UNSPECIFIED,SYSTEM_CONFIGURATION#UNSPECIFIED,OBSERVE_TARGET#UNSPECIFIED,CALIBRATE_POL_LEAKAGE#UNSPECIFIED,CALIBRATE_BANDPASS#UNSPECIFIED,CALIBRATE_AMPLI#UNSPECIFIED,CALIBRATE_PHASE#UNSPECIFIED', 
-spw='{all_spws}', antenna='0~26', gaintable=['{msin}.hifv_priorcals.s5_2.gc.tbl', 
-'{msin}.hifv_priorcals.s5_3.opac.tbl', 
-'{msin}.hifv_priorcals.s5_4.rq.tbl', 
-'{msin}.hifv_finalcals.s13_2.finaldelay.tbl', 
-'{msin}.hifv_finalcals.s13_4.finalBPcal.tbl', 
-'{msin}.hifv_finalcals.s13_5.averagephasegain.tbl', 
-'{msin}.hifv_finalcals.s13_7.finalampgaincal.tbl', 
-'{msin}.hifv_finalcals.s13_8.finalphasegaincal.tbl',
-'{cal_leakage_newgains}'], 
-gainfield=['', '', '', '', '', '', '', '','{cal_leakage}'], 
-spwmap=[[], [], [], [], [], [], [], []], 
-interp=['', '', '', '', 'linear,linearflag', '', '', '',''], 
-parang=False, applymode='calflagstrict', flagbackup=False)
+	#now apply with the 3C147 new gain solutions
+	applycal(vis='{msin}', field='{sources}',intent='CALIBRATE_POL_ANGLE#UNSPECIFIED,SYSTEM_CONFIGURATION#UNSPECIFIED,OBSERVE_TARGET#UNSPECIFIED,CALIBRATE_POL_LEAKAGE#UNSPECIFIED,CALIBRATE_BANDPASS#UNSPECIFIED,CALIBRATE_AMPLI#UNSPECIFIED,CALIBRATE_PHASE#UNSPECIFIED', 
+	spw='{all_spws}', antenna='0~26', gaintable=['{msin}.hifv_priorcals.s5_2.gc.tbl', 
+	'{msin}.hifv_priorcals.s5_3.opac.tbl', 
+	'{msin}.hifv_priorcals.s5_4.rq.tbl', 
+	'{msin}.hifv_finalcals.s13_2.finaldelay.tbl', 
+	'{msin}.hifv_finalcals.s13_4.finalBPcal.tbl', 
+	'{msin}.hifv_finalcals.s13_5.averagephasegain.tbl', 
+	'{msin}.hifv_finalcals.s13_7.finalampgaincal.tbl', 
+	'{msin}.hifv_finalcals.s13_8.finalphasegaincal.tbl',
+	'{cal_leakage_newgains}'], 
+	gainfield=['', '', '', '', '', '', '', '','{cal_leakage}'], 
+	spwmap=[[], [], [], [], [], [], [], []], 
+	interp=['', '', '', '', 'linear,linearflag', '', '', '',''], 
+	parang=False, applymode='calflagstrict', flagbackup=False)
+else:
+	pass
 
 #Do some basic flagging to prepare for cross-hand calibration
 flagdata(vis='{msin}', mode='rflag', correlation='ABS_RR,LL', 
@@ -158,7 +162,7 @@ timedevscale=4.0, freqdevscale=4.0, action='apply', flagbackup=True, savepars=Tr
 statwt(vis='{msin}',minsamp=8,datacolumn='corrected')
 
 #Split parallel-hand calibration to new MS
-split(vis='{msin}',outputvis=msout,datacolumn='corrected',spw='{band_spws}')
+split(vis='{msin}',outputvis='{msout}',datacolumn='corrected',spw='{band_spws}')
 
 #ea11 has some bad data for 3C123
 #flagdata(vis='{msout}', antenna='ea11&ea22', spw='0~2')
@@ -261,11 +265,7 @@ setjy(vis='{msout}',field='{cal_leakage}',scalebychan=True,standard="manual",mod
 	listmodels=False,fluxdensity=[27.1585,0,0,0],spix=[-0.263161,1.66251],reffreq='14.8976GHz',polindex=[],
 	polangle=[],rotmeas=0,fluxdict={fluxdict},useephemdir=False,interpolation='nearest',
 	usescratch=True, ismms=False)
-#also for phasecal for completeness
-setjy(vis='{msout}',field=cal_phase,scalebychan=True,standard="manual",model="",
-	listmodels=False,fluxdensity=[0.174641,0,0,0],spix=[-0.641111,3.64104],reffreq='14.8976GHz',polindex=[],
-	polangle=[],rotmeas=0,fluxdict='{fluxdict}',useephemdir=False,interpolation='nearest',
-	usescratch=True, ismms=False)
+
 #Solve for the RL phase difference on the reference antenna
 #Need to solve for each baseband at a time
 kcross_sbd = '{msout}.Kcross_sbd'
