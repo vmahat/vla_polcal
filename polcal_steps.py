@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 import ast
 import csv
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("polcal")
+
 def load_calibration_config(config_path):
     config = {}
     with open(config_path, "r") as f:
@@ -30,7 +33,7 @@ if len(sys.argv) < 6:
     print("Usage: python vla_polcal.py <msin> <msout> <msout_target> <output_dir> <config_file.py>")
     sys.exit(1)
 
-msfile = sys.argv[1]
+msin = sys.argv[1]
 msout = sys.argv[2]
 msout_target = sys.argv[3]
 output_dir = sys.argv[4]
@@ -48,6 +51,7 @@ band_spws = config.get("band_spws")
 final_spws = config.get("final_spws")
 sources = config.get("sources")
 cal_leakage = config.get("cal_leakage")
+cal_leakage_im = config.get("cal_leakage_im")
 cal_polangle = config.get("cal_polangle")
 cal_leakage_newgains = config.get("cal_leakage_newgains")
 target = config.get("target")
@@ -88,73 +92,81 @@ def run_casa_command(casa_script):
 	casa_cmd = f"{casa_path} --nogui -c {casa_script}"
 	run_command(casa_cmd, shell=True)
 
-os.system(casa_path)
+#os.system(casa_path)
 os.chdir(output_dir)
 
-applycal(vis=msin, field=sources, intent='CALIBRATE_POL_ANGLE#UNSPECIFIED,SYSTEM_CONFIGURATION#UNSPECIFIED,OBSERVE_TARGET#UNSPECIFIED,CALIBRATE_POL_LEAKAGE#UNSPECIFIED,CALIBRATE_BANDPASS#UNSPECIFIED,CALIBRATE_AMPLI#UNSPECIFIED,CALIBRATE_PHASE#UNSPECIFIED', 
-spw=all_spws, antenna='0~26', gaintable=[msin+'.hifv_priorcals.s5_2.gc.tbl', 
-msin+'.hifv_priorcals.s5_3.opac.tbl', 
-msin+'.hifv_priorcals.s5_4.rq.tbl', 
-msin+'.hifv_finalcals.s13_2.finaldelay.tbl', 
-msin+'.hifv_finalcals.s13_4.finalBPcal.tbl', 
-msin+'.hifv_finalcals.s13_5.averagephasegain.tbl', 
-msin+'.hifv_finalcals.s13_7.finalampgaincal.tbl', 
-msin+'.hifv_finalcals.s13_8.finalphasegaincal.tbl'], 
+fluxdict = {}
+
+casa_script = f"""
+from casatasks import gaincal, applycal, setjy, flagdata, polcal, split, statwt
+
+applycal(vis='{msin}', field='{sources}', intent='CALIBRATE_POL_ANGLE#UNSPECIFIED,SYSTEM_CONFIGURATION#UNSPECIFIED,OBSERVE_TARGET#UNSPECIFIED,CALIBRATE_POL_LEAKAGE#UNSPECIFIED,CALIBRATE_BANDPASS#UNSPECIFIED,CALIBRATE_AMPLI#UNSPECIFIED,CALIBRATE_PHASE#UNSPECIFIED', 
+spw='{all_spws}', antenna='0~26', gaintable=['{msin}.hifv_priorcals.s5_2.gc.tbl', 
+'{msin}.hifv_priorcals.s5_3.opac.tbl', 
+'{msin}.hifv_priorcals.s5_4.rq.tbl', 
+'{msin}.hifv_finalcals.s13_2.finaldelay.tbl', 
+'{msin}.hifv_finalcals.s13_4.finalBPcal.tbl', 
+'{msin}.hifv_finalcals.s13_5.averagephasegain.tbl', 
+'{msin}.hifv_finalcals.s13_7.finalampgaincal.tbl', 
+'{msin}.hifv_finalcals.s13_8.finalphasegaincal.tbl'], 
 gainfield=['', '', '', '', '', '', '', ''], 
 spwmap=[[], [], [], [], [], [], [], []], interp=['', '', '', '', 'linear,linearflag', '', '', ''], 
 parang=False, applymode='calflagstrict', flagbackup=False)
 
-#Now set the model for 3C147 as the pipeline did not do this
-setjy(vis=msin, field=cal_leakage, standard='Perley-Butler 2017', 
-	model=cal_leakage+'_'+band+'.im', usescratch=True, scalebychan=True)
+if {cal_leakage_newgains}:
+	#Now set the model for 3C147 as the pipeline did not do this
+	setjy(vis='{msin}', field='{cal_leakage}', standard='Perley-Butler 2017', 
+		model='{cal_leakage_im}', usescratch=True, scalebychan=True)
 
-#Calibrate on 3C147 as it's resolved, carrying previous caltables
-gaincal(vis=msin, caltable=cal_leakage_newgains, field=cal_leakage, 
-	refant='ea15,ea23,ea27,ea20,ea17,ea16,ea13,ea26,ea02,ea25,ea08,ea05,ea11,ea04,ea14,ea01,ea19,ea10,ea07,ea06,ea09,ea28,ea22,ea03,ea24,ea21,ea18', 
-	spw='', gaintype='G',calmode='p', solint='int',
-	gaintable=[msin+'.hifv_priorcals.s5_2.gc.tbl', 
-msin+'.hifv_priorcals.s5_3.opac.tbl', 
-msin+'.hifv_priorcals.s5_4.rq.tbl', 
-msin+'.hifv_finalcals.s13_2.finaldelay.tbl', 
-msin+'.hifv_finalcals.s13_4.finalBPcal.tbl', 
-msin+'.hifv_finalcals.s13_5.averagephasegain.tbl', 
-msin+'.hifv_finalcals.s13_7.finalampgaincal.tbl', 
-msin+'.hifv_finalcals.s13_8.finalphasegaincal.tbl'])
+	#Calibrate on 3C147 as it's resolved, carrying previous caltables
+	gaincal(vis='{msin}', caltable='{cal_leakage_newgains}', field='{cal_leakage}', 
+		refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
+		spw='', gaintype='G',calmode='p', solint='int',
+		gaintable=['{msin}.hifv_priorcals.s5_2.gc.tbl', 
+	'{msin}.hifv_priorcals.s5_3.opac.tbl', 
+	'{msin}.hifv_priorcals.s5_4.rq.tbl', 
+	'{msin}.hifv_finalcals.s13_2.finaldelay.tbl', 
+	'{msin}.hifv_finalcals.s13_4.finalBPcal.tbl', 
+	'{msin}.hifv_finalcals.s13_5.averagephasegain.tbl', 
+	'{msin}.hifv_finalcals.s13_7.finalampgaincal.tbl', 
+	'{msin}.hifv_finalcals.s13_8.finalphasegaincal.tbl'])
 
-#now apply with the 3C147 new gain solutions
-applycal(vis=msin, field=sources,intent='CALIBRATE_POL_ANGLE#UNSPECIFIED,SYSTEM_CONFIGURATION#UNSPECIFIED,OBSERVE_TARGET#UNSPECIFIED,CALIBRATE_POL_LEAKAGE#UNSPECIFIED,CALIBRATE_BANDPASS#UNSPECIFIED,CALIBRATE_AMPLI#UNSPECIFIED,CALIBRATE_PHASE#UNSPECIFIED', 
-spw=all_spws, antenna='0~26', gaintable=[msin+'.hifv_priorcals.s5_2.gc.tbl', 
-msin+'.hifv_priorcals.s5_3.opac.tbl', 
-msin+'.hifv_priorcals.s5_4.rq.tbl', 
-msin+'.hifv_finalcals.s13_2.finaldelay.tbl', 
-msin+'.hifv_finalcals.s13_4.finalBPcal.tbl', 
-msin+'.hifv_finalcals.s13_5.averagephasegain.tbl', 
-msin+'.hifv_finalcals.s13_7.finalampgaincal.tbl', 
-msin+'.hifv_finalcals.s13_8.finalphasegaincal.tbl',
-cal_leakage_newgains], 
-gainfield=['', '', '', '', '', '', '', '',cal_leakage], 
-spwmap=[[], [], [], [], [], [], [], []], 
-interp=['', '', '', '', 'linear,linearflag', '', '', '',''], 
-parang=False, applymode='calflagstrict', flagbackup=False)
+	#now apply with the 3C147 new gain solutions
+	applycal(vis='{msin}', field='{sources}',intent='CALIBRATE_POL_ANGLE#UNSPECIFIED,SYSTEM_CONFIGURATION#UNSPECIFIED,OBSERVE_TARGET#UNSPECIFIED,CALIBRATE_POL_LEAKAGE#UNSPECIFIED,CALIBRATE_BANDPASS#UNSPECIFIED,CALIBRATE_AMPLI#UNSPECIFIED,CALIBRATE_PHASE#UNSPECIFIED', 
+	spw='{all_spws}', antenna='0~26', gaintable=['{msin}.hifv_priorcals.s5_2.gc.tbl', 
+	'{msin}.hifv_priorcals.s5_3.opac.tbl', 
+	'{msin}.hifv_priorcals.s5_4.rq.tbl', 
+	'{msin}.hifv_finalcals.s13_2.finaldelay.tbl', 
+	'{msin}.hifv_finalcals.s13_4.finalBPcal.tbl', 
+	'{msin}.hifv_finalcals.s13_5.averagephasegain.tbl', 
+	'{msin}.hifv_finalcals.s13_7.finalampgaincal.tbl', 
+	'{msin}.hifv_finalcals.s13_8.finalphasegaincal.tbl',
+	'{cal_leakage_newgains}'], 
+	gainfield=['', '', '', '', '', '', '', '','{cal_leakage}'], 
+	spwmap=[[], [], [], [], [], [], [], []], 
+	interp=['', '', '', '', 'linear,linearflag', '', '', '',''], 
+	parang=False, applymode='calflagstrict', flagbackup=False)
+else:
+	pass
 
 #Do some basic flagging to prepare for cross-hand calibration
-flagdata(vis=msin, mode='rflag', correlation='ABS_RR,LL', 
+flagdata(vis='{msin}', mode='rflag', correlation='ABS_RR,LL', 
 intent='*CALIBRATE*', datacolumn='corrected', ntime='scan', 
 combinescans=False,extendflags=False, winsize=3, 
 timedevscale=4.0, freqdevscale=4.0, action='apply', flagbackup=True, savepars=True)
 
-flagdata(vis=msin, mode='rflag', correlation='ABS_RR,LL', 
+flagdata(vis='{msin}', mode='rflag', correlation='ABS_RR,LL', 
 intent='*TARGET*', datacolumn='corrected', ntime='scan', combinescans=False,extendflags=False, winsize=3, 
 timedevscale=4.0, freqdevscale=4.0, action='apply', flagbackup=True, savepars=True)
 
-statwt(vis=msin,minsamp=8,datacolumn='corrected')
+statwt(vis='{msin}',minsamp=8,datacolumn='corrected')
 
 #Split parallel-hand calibration to new MS
-split(vis=msin,outputvis=msout,	datacolumn='corrected',spw=band_spws)
+split(vis='{msin}',outputvis='{msout}',datacolumn='corrected',spw='{band_spws}')
 
 #ea11 has some bad data for 3C123
-#flagdata(vis=msout, antenna='ea11&ea22', spw='0~2')
-#flagdata(vis=msout, mode='rflag', antenna='ea11') #amp outliers only show up when averaging data in frequency, so likely some few channels with strong RFI
+#flagdata(vis='{msout}', antenna='ea11&ea22', spw='0~2')
+#flagdata(vis='{msout}', mode='rflag', antenna='ea11') #amp outliers only show up when averaging data in frequency, so likely some few channels with strong RFI
 
 import numpy as np 
 from scipy.optimize import curve_fit
@@ -173,19 +185,23 @@ def PA(f,a,b,c,d,e,g):
 
 # Fit 4-8 GHz data points.
 #flaring scaling factor reported by nrao for 3C138 at S-band and C-band as of 01/12/2024
-scaling=[1.030489,1.030489,1.11295196043943,1.11295196043943,1.11295196043943] 
+#scaling=[1.030489,1.030489,1.11295196043943,1.11295196043943,1.11295196043943] 
+#scaling for Ku-band at 01/02/2021
+scaling=[1.058064]
 extrap_scaling = scaling.copy()
 #Give two indices from "scaling" corresponding to frequencies from "data" with known fluxes, rest will be averaged
 known_fluxes=[0,3]
-for i in range(1,len(scaling)-1):#skip the first and last elements
-	extrap_scaling[i] = (extrap_scaling[i-1]+extrap_scaling[i]+extrap_scaling[i+1])/3
-	print(extrap_scaling[i])
-#Ensure these go back to normal as they should be fixed
-extrap_scaling[0]=scaling[0]
-extrap_scaling[3]=scaling[3]
+if len(scaling)>1:
+	for i in range(1,len(scaling)-1):#skip the first and last elements
+		extrap_scaling[i] = (extrap_scaling[i-1]+extrap_scaling[i]+extrap_scaling[i+1])/3
+		print(extrap_scaling[i])
+	#Ensure these go back to normal as they should be fixed
+	extrap_scaling[0]=scaling[0]
+	extrap_scaling[3]=scaling[3]
+
 print('Extrapolated scaling factors: ',extrap_scaling)
-popt_I,pcov=curve_fit(S,data[3:8,0],data[3:8,1]*extrap_scaling)
-print(data[3:8,0],data[3:8,1]*scaling)
+popt_I,pcov=curve_fit(S,data[7:13,0],data[7:13,1]*scaling) #put extrap_scaling if there are multiple scaling factors
+print(data[7:13,0],data[7:13,1]*scaling)
 print("I@6GHz: ",popt_I[0], ' Jy')
 print("alpha: ",popt_I[1])
 print("beta", popt_I[2])
@@ -193,7 +209,7 @@ print('Covariance: ',pcov)
 
 #Clear any plots that may exist
 plt.close()
-plt.plot(data[3:8,0],data[3:8,1]*scaling,'ro',label='data')
+plt.plot(data[7:13,0],data[7:13,1]*scaling,'ro',label='data')
 plt.plot(np.arange(1,9,0.1),S(np.arange(1,9,0.1), *popt_I), 'r-', label='fit')
 
 plt.title('3C138')
@@ -203,11 +219,11 @@ plt.ylabel('Flux Density (Jy)')
 plt.savefig('FluxvFreq.png')
 
 
-popt_pf,pcov=curve_fit(PF,data[0:8,0],data[0:8,2])
+popt_pf,pcov=curve_fit(PF,data[7:13,0],data[7:13,2])
 print("Polfrac Polynomial: ",popt_pf)
 print("Covariance: ", pcov)
 plt.close()
-plt.plot(data[0:8,0],data[0:8,2],'ro',label='data')
+plt.plot(data[7:13,0],data[7:13,2],'ro',label='data')
 plt.plot(np.arange(1,9,0.1),PF(np.arange(1,9,0.1), *popt_pf), 'r-', label='fit')
 
 plt.title('3C138')
@@ -216,11 +232,11 @@ plt.xlabel('Frequency (GHz)')
 plt.ylabel('Lin. Pol. Fraction')
 plt.savefig('LinPolFracvFreq.png')
 
-popt_pa,pcov=curve_fit(PA,data[0:8,0],data[0:8,3])
+popt_pa,pcov=curve_fit(PA,data[7:13,0],data[7:13,3])
 print("Polangle Polynomial: ",popt_pa)
 print("Covariance: ", pcov)
 plt.close()
-plt.plot(data[0:8,0],data[0:8,3],'ro',label='data')
+plt.plot(data[7:13,0],data[7:13,3],'ro',label='data')
 plt.plot(np.arange(1,9,0.1),PA(np.arange(1,9,0.1), *popt_pa), 'r-', label='fit')
 
 plt.title('3C138')
@@ -230,7 +246,7 @@ plt.ylabel('Lin. Pol. Angle (rad)')
 plt.savefig('LinPolAnglevFreq.png')
 plt.close()
 
-reffreq = '6.0GHz'
+reffreq = '15.0GHz'
 I=popt_I[0]
 alpha=[popt_I[1],popt_I[2]]
 polfrac=popt_pf
@@ -238,88 +254,93 @@ polangle=popt_pa
 print(polfrac,polangle)
 
 #set model for polangle cal
-setjy(vis=msout,field=cal_polangle,scalebychan=True,standard="manual",model="",
+setjy(vis='{msout}',field='{cal_polangle}',scalebychan=True,standard="manual",model="",
 	listmodels=False,fluxdensity=[I,0,0,0],spix=alpha,reffreq=reffreq,polindex=polfrac,
-	polangle=polangle,rotmeas=0,fluxdict={},useephemdir=False,interpolation='nearest',
+	polangle=polangle,rotmeas=0,fluxdict={fluxdict},useephemdir=False,interpolation='nearest',
 	usescratch=True, ismms=False)
 
 #Set model for leakage cal
 #Get from calibration weblog stage12/casapy.log
-setjy(vis=msout,field=cal_leakage,scalebychan=True,standard="manual",model="",
-	listmodels=False,fluxdensity=[8.63467,0,0,0],spix=[-1.00643,-0.244955],reffreq='3.75723GHz',polindex=[],
-	polangle=[],rotmeas=0,fluxdict={},useephemdir=False,interpolation='nearest',
+setjy(vis='{msout}',field='{cal_leakage}',scalebychan=True,standard="manual",model="",
+	listmodels=False,fluxdensity=[27.1585,0,0,0],spix=[-0.263161,1.66251],reffreq='14.8976GHz',polindex=[],
+	polangle=[],rotmeas=0,fluxdict={fluxdict},useephemdir=False,interpolation='nearest',
 	usescratch=True, ismms=False)
-#also for phasecal for completeness
-setjy(vis=msout,field=cal_phase,scalebychan=True,standard="manual",model="",
-	listmodels=False,fluxdensity=[1.10459,0,0,0],spix=[-0.120697,-0.438941],reffreq='3.75723GHz',polindex=[],
-	polangle=[],rotmeas=0,fluxdict={},useephemdir=False,interpolation='nearest',
-	usescratch=True, ismms=False)
+
 #Solve for the RL phase difference on the reference antenna
 #Need to solve for each baseband at a time
-kcross_sbd = msout+'.Kcross_sbd'
-gaincal(vis=msout, caltable=kcross_sbd,field=cal_polangle,spw='0~15:5~58', 
-	refant='ea15,ea23,ea27,ea20,ea17,ea16,ea13,ea26,ea02,ea25,ea08,ea05,ea11,ea04,ea14,ea01,ea19,ea10,ea07,ea06,ea09,ea28,ea22,ea03,ea24,ea21,ea18', 
+kcross_sbd = '{msout}.Kcross_sbd'
+gaincal(vis='{msout}', caltable=kcross_sbd,field='{cal_polangle}',spw='0~15:5~58', 
+	refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan',calmode='ap',append=False, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
-gaincal(vis=msout, caltable=kcross_sbd,field=cal_polangle,spw='16~25:5~58', 
-	refant='ea15,ea23,ea27,ea20,ea17,ea16,ea13,ea26,ea02,ea25,ea08,ea05,ea11,ea04,ea14,ea01,ea19,ea10,ea07,ea06,ea09,ea28,ea22,ea03,ea24,ea21,ea18', 
+gaincal(vis='{msout}', caltable=kcross_sbd,field='{cal_polangle}',spw='16~25:5~58', 
+	refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan',calmode='ap',append=True, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
-gaincal(vis=msout, caltable=kcross_sbd,field=cal_polangle,spw='26~31:5~58', 
-	refant='ea15,ea23,ea27,ea20,ea17,ea16,ea13,ea26,ea02,ea25,ea08,ea05,ea11,ea04,ea14,ea01,ea19,ea10,ea07,ea06,ea09,ea28,ea22,ea03,ea24,ea21,ea18', 
+gaincal(vis='{msout}', caltable=kcross_sbd,field='{cal_polangle}',spw='26~31:5~58', 
+	refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan',calmode='ap',append=True, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
 #Also try a multi-band solution (over all basebands):
-kcross_mbd = msout+'.Kcross_mbd'
-gaincal(vis=msout, caltable=kcross_mbd,field=cal_polangle,spw='0~15:5~58', 
-	refant='ea15,ea23,ea27,ea20,ea17,ea16,ea13,ea26,ea02,ea25,ea08,ea05,ea11,ea04,ea14,ea01,ea19,ea10,ea07,ea06,ea09,ea28,ea22,ea03,ea24,ea21,ea18', 
+kcross_mbd = '{msout}.Kcross_mbd'
+gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='0~15:5~58', 
+	refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan,spw',calmode='ap',append=False, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
-gaincal(vis=msout, caltable=kcross_mbd,field=cal_polangle,spw='16~25:5~58', 
-	refant='ea15,ea23,ea27,ea20,ea17,ea16,ea13,ea26,ea02,ea25,ea08,ea05,ea11,ea04,ea14,ea01,ea19,ea10,ea07,ea06,ea09,ea28,ea22,ea03,ea24,ea21,ea18', 
+gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='16~31:5~58', 
+	refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan,spw',calmode='ap',append=True, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
-gaincal(vis=msout, caltable=kcross_mbd,field=cal_polangle,spw='26~31:5~58', 
-	refant='ea15,ea23,ea27,ea20,ea17,ea16,ea13,ea26,ea02,ea25,ea08,ea05,ea11,ea04,ea14,ea01,ea19,ea10,ea07,ea06,ea09,ea28,ea22,ea03,ea24,ea21,ea18', 
+gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='32~47:5~58', 
+	refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan,spw',calmode='ap',append=True, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
 #Do this mbd as sbd solution looks too erratic
 #Now solve for leakages
-dtab = msout+'.Df'
-polcal(vis=msout,
+dtab = '{msout}.Df'
+polcal(vis='{msout}',
        caltable=dtab,
-       field=cal_leakage,
-       spw=final_spws,
-       refant='ea15,ea23,ea27,ea20,ea17,ea16,ea13,ea26,ea02,ea25,ea08,ea05,ea11,ea04,ea14,ea01,ea19,ea10,ea07,ea06,ea09,ea28,ea22,ea03,ea24,ea21,ea18',
+       field='{cal_leakage}',
+       spw='{final_spws}',
+       refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11',
        poltype='Df',
        solint='inf,2MHz',
        combine='scan',
        gaintable=[kcross_mbd],
        gainfield=[''],
-       spwmap=[[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,26,26,26,26,26,26]],
+       spwmap=[[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32]],
        append=False)
 
-xtab = msout+".Xf"
-polcal(vis=msout, caltable=xtab, spw=final_spws,
-field=cal_polangle, solint='inf,2MHz', combine='scan', poltype='Xf',
-refant = 'ea15,ea23,ea27,ea20,ea17,ea16,ea13,ea26,ea02,ea25,ea08,ea05,ea11,ea04,ea14,ea01,ea19,ea10,ea07,ea06,ea09,ea28,ea22,ea03,ea24,ea21,ea18',
+xtab = '{msout}.Xf'
+polcal(vis='{msout}', caltable=xtab, spw='{final_spws}',
+field='{cal_polangle}', solint='inf,2MHz', combine='scan', poltype='Xf',
+refant = 'ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11',
 gaintable=[kcross_mbd,dtab],
 gainfield=['',''],
-spwmap=[[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,26,26,26,26,26,26],[]],
+spwmap=[[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32],[]],
 append=False)
 
-applycal(vis=msout, field='',gainfield=['','',''],
+applycal(vis='{msout}', field='',gainfield=['','',''],
 	flagbackup=True, interp=['','',''],gaintable=[kcross_mbd,dtab,xtab],
-	spw='0~31', calwt=[False,False,False],applymode='calflag',antenna='*&*',
-	spwmap=[[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,26,26,26,26,26,26],[],[]],
+	spw='{final_spws}', calwt=[False,False,False],applymode='calflag',antenna='*&*',
+	spwmap=[[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32],[],[]],
 	parang=True)
 
-split(vis=msout,outputvis=msout_target,
-	datacolumn='corrected',field=target)
+split(vis='{msout}',outputvis='{msout_target}',
+	datacolumn='corrected',field='{target}')
 
-statwt(vis=msout_target,datacolumn='data',minsamp=8)
-
+statwt(vis='{msout_target}',datacolumn='data',minsamp=8)
 	"""
+
+script_path = f"{output_dir}/casa_polcal.py"
+with open(script_path, "w") as f:
+	f.write(casa_script)
+
+# Run CASA script for calibration
+run_casa_command(script_path)
+
+
+"""
 script_path = f"{output_dir}/casa_polcal.py"
 with open(script_path, "w") as f:
 	f.write(casa_script)
@@ -331,3 +352,4 @@ logger = logging.getLogger("polcal")
 run_casa_command(script_path)
 
 logger.info("Pol cal completed successfully!")
+"""
