@@ -1,0 +1,30 @@
+# Enter band name
+band='Ku'
+
+#Range in spectral windows in MS
+all_spws='0~65'
+
+#Range in spectral windows to calibrate
+band_spws='18~65'
+
+#Ramge in spectral windows in new MS (==len(band_spws))
+final_spws='0~47'
+
+#Objects in MS
+sources='3C123,J0319+4130,J0521+1638,J0443+3441'
+
+#Leakage calibrator
+cal_leakage='J0319+4130'
+cal_leakage_im='3C84_Ku.im'
+
+#Pol angle calibrator
+cal_polangle='J0521+1638'
+
+#Phase calibrator
+cal_phase='J0443+3441'
+
+#New leakage table
+#cal_leakage_newgains='cal_leakage_new_phases.tbl'
+
+#Target
+target='3C123'
