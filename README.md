@@ -5,6 +5,6 @@ This version requires the calibration outputs from the NRAO VLA pipeline to be p
 
 Usage:
 -Create a config, using the example config provided
--run `python <msin> <msout> <msout_target> <output_directory> config.txt`
+-run `python polcal_steps.py <msin> <msout> <msout_target> <output_directory> config.txt`
 
 This will output a fully polarimetric calibrated measurement set containing your science target. It is expected to run self-calibration after this.
