@@ -8,3 +8,9 @@ Usage:
 -run `python polcal_steps.py <msin> <msout> <msout_target> <output_directory> config.txt`
 
 This will output a fully polarimetric calibrated measurement set containing your science target. It is expected to run self-calibration after this.
+
+Software requirements:
+
+CASA
+Python3
+singularity
