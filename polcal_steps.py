@@ -120,7 +120,7 @@ if {cal_leakage_newgains}:
 
 	#Calibrate on 3C147 as it's resolved, carrying previous caltables
 	gaincal(vis='{msin}', caltable='{cal_leakage_newgains}', field='{cal_leakage}', 
-		refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
+		refant='ea23', 
 		spw='', gaintype='G',calmode='p', solint='int',
 		gaintable=['{msin}.hifv_priorcals.s5_2.gc.tbl', 
 	'{msin}.hifv_priorcals.s5_3.opac.tbl', 
@@ -270,29 +270,29 @@ setjy(vis='{msout}',field='{cal_leakage}',scalebychan=True,standard="manual",mod
 #Need to solve for each baseband at a time
 kcross_sbd = '{msout}.Kcross_sbd'
 gaincal(vis='{msout}', caltable=kcross_sbd,field='{cal_polangle}',spw='0~15:5~58', 
-	refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
+	refant='ea23', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan',calmode='ap',append=False, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
 gaincal(vis='{msout}', caltable=kcross_sbd,field='{cal_polangle}',spw='16~25:5~58', 
-	refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
+	refant='ea23', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan',calmode='ap',append=True, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
 gaincal(vis='{msout}', caltable=kcross_sbd,field='{cal_polangle}',spw='26~31:5~58', 
-	refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
+	refant='ea23', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan',calmode='ap',append=True, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
 #Also try a multi-band solution (over all basebands):
 kcross_mbd = '{msout}.Kcross_mbd'
 gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='0~15:5~58', 
-	refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
+	refant='ea23', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan,spw',calmode='ap',append=False, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
 gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='16~31:5~58', 
-	refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
+	refant='ea23', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan,spw',calmode='ap',append=True, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
 gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='32~47:5~58', 
-	refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11', 
+	refant='ea23', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan,spw',calmode='ap',append=True, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
 #Do this mbd as sbd solution looks too erratic
@@ -302,7 +302,7 @@ polcal(vis='{msout}',
        caltable=dtab,
        field='{cal_leakage}',
        spw='{final_spws}',
-       refant='ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11',
+       refant='ea23',
        poltype='Df',
        solint='inf,2MHz',
        combine='scan',
