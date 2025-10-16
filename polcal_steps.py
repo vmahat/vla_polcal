@@ -56,6 +56,16 @@ cal_polangle = config.get("cal_polangle")
 cal_leakage_newgains = config.get("cal_leakage_newgains")
 target = config.get("target")
 
+if band=="Ku":
+	baseband_list=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32]
+	solve_bbc1 = '0~15:5~58'
+	solve_bbc2 = '16~31:5~58'
+	solve_bbc3 = '32~47:5~58'
+elif band=="C":
+	baseband_list=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,26,26,26,26,26,26]
+	solve_bbc1 = '0~15:5~58'
+	solve_bbc2 = '16~25:5~58'
+	solve_bbc3 = '26~31:5~58'
 """ #is this needed?
 with open(config_file, 'r') as f:
     reader = csv.reader(f)
@@ -283,15 +293,16 @@ gaincal(vis='{msout}', caltable=kcross_sbd,field='{cal_polangle}',spw='26~31:5~5
 	gainfield='',interp='', spwmap=[[]], parang=True)
 #Also try a multi-band solution (over all basebands):
 kcross_mbd = '{msout}.Kcross_mbd'
-gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='0~15:5~58', 
+
+gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='{solve_bbc1}', 
 	refant='ea23', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan,spw',calmode='ap',append=False, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
-gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='16~31:5~58', 
+gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='{solve_bbc2}', 
 	refant='ea23', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan,spw',calmode='ap',append=True, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
-gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='32~47:5~58', 
+gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='{solve_bbc3}', 
 	refant='ea23', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan,spw',calmode='ap',append=True, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
@@ -308,22 +319,22 @@ polcal(vis='{msout}',
        combine='scan',
        gaintable=[kcross_mbd],
        gainfield=[''],
-       spwmap=[[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32]],
+       spwmap=[{baseband_list}],
        append=False)
 
 xtab = '{msout}.Xf'
 polcal(vis='{msout}', caltable=xtab, spw='{final_spws}',
 field='{cal_polangle}', solint='inf,2MHz', combine='scan', poltype='Xf',
-refant = 'ea02,ea28,ea10,ea23,ea25,ea09,ea16,ea13,ea12,ea19,ea04,ea27,ea20,ea08,ea17,ea24,ea07,ea14,ea03,ea06,ea01,ea15,ea05,ea26,ea21,ea11',
+refant = 'ea23',
 gaintable=[kcross_mbd,dtab],
 gainfield=['',''],
-spwmap=[[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32],[]],
+spwmap=[{baseband_list},[]],
 append=False)
 
 applycal(vis='{msout}', field='',gainfield=['','',''],
 	flagbackup=True, interp=['','',''],gaintable=[kcross_mbd,dtab,xtab],
 	spw='{final_spws}', calwt=[False,False,False],applymode='calflag',antenna='*&*',
-	spwmap=[[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32],[],[]],
+	spwmap=[{baseband_list},[],[]],
 	parang=True)
 
 split(vis='{msout}',outputvis='{msout_target}',
