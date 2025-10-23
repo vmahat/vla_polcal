@@ -52,41 +52,27 @@ final_spws = config.get("final_spws")
 sources = config.get("sources")
 cal_leakage = config.get("cal_leakage")
 cal_leakage_im = config.get("cal_leakage_im")
-cal_polangle = config.get("cal_polangle")
 cal_leakage_newgains = config.get("cal_leakage_newgains")
+cal_leakage_I_model = config.get("cal_leakage_I_model")
+cal_leakage_I_model_spix = config.get("cal_leakage_I_model_spix")
+cal_leakage_ref_freq = config.get("cal_leakage_ref_freq")
+cal_polangle = config.get("cal_polangle")
+cal_polangle_ref_freq = config.get("cal_polangle_ref_freq")
 target = config.get("target")
 
 if band=="Ku":
-	baseband_list=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32]
+	baseband_list=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32]
 	solve_bbc1 = '0~15:5~58'
 	solve_bbc2 = '16~31:5~58'
 	solve_bbc3 = '32~47:5~58'
+	band_ref = 15.0
 elif band=="C":
 	baseband_list=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,26,26,26,26,26,26]
 	solve_bbc1 = '0~15:5~58'
 	solve_bbc2 = '16~25:5~58'
 	solve_bbc3 = '26~31:5~58'
-""" #is this needed?
-with open(config_file, 'r') as f:
-    reader = csv.reader(f)
-    for row in reader:
-        if not row or row[0].startswith("#"):
-            continue  # skip comments/empty lines
-        band = row[0].strip()
-        all_spws = row[1].strip() if len(row) > 1 else ""
-        band_spws = row[2].strip() if len(row) > 2 else ""
-        final_spws = row[3].strip() if len(row) > 3 else ""
-        sources = row[4].strip() if len(row) > 4 else ""
-        cal_leakage = row[5].strip() if len(row) > 5 else ""
-        cal_polangle = row[6].strip() if len(row) > 6 else ""
-        cal_phase = row[7].strip() if len(row) > 7 else ""
-        cal_leakage_newgains = row[8].strip() if len(row) > 8 else ""
-        target = row[9].strip() if len(row) > 9 else ""
+	band_ref = 6.0
 
-        solution_intervals.append(solint)
-        solution_type.append(soltype)
-        solution_mode.append(solmode)
-"""
 casa_path = "/soft/casa-latest/bin/casa"
 
 def run_command(cmd, shell=False):
@@ -183,96 +169,109 @@ from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 
 #Need to set polangle calibrator model
-#3C138 is flaring, so need values then apply scaling factor
-data=np.loadtxt('3c138_2019.txt')
-
 def S(f,S,alpha,beta):
-	return S*(f/6.0)**(alpha+beta*np.log10(f/6.0)) #find spectral index at 6 GHz
+	return S*(f/{band_ref})**(alpha+beta*np.log10(f/{band_ref})) #find spectral index at 6 GHz
 def PF(f,a,b,c,d):
-	return a+b*((f-6.0)/6.0)+c*((f-6.0)/6.0)**2+d*((f-6.0)/6.0)**3
+	return a+b*((f-{band_ref})/{band_ref})+c*((f-{band_ref})/{band_ref})**2+d*((f-{band_ref})/{band_ref})**3
 def PA(f,a,b,c,d,e,g):
-	return a+b*((f-6.0)/6.0)+c*((f-6.0)/6.0)**2+d*((f-6.0)/6.0)**3+e*((f-6.0)/6.0)**4+g*((f-6.0)/6.0)**5
+	return a+b*((f-{band_ref})/{band_ref})+c*((f-{band_ref})/{band_ref})**2+d*((f-{band_ref})/{band_ref})**3+e*((f-{band_ref})/{band_ref})**4+g*((f-{band_ref})/{band_ref})**5
 
-# Fit 4-8 GHz data points.
-#flaring scaling factor reported by nrao for 3C138 at S-band and C-band as of 01/12/2024
-#scaling=[1.030489,1.030489,1.11295196043943,1.11295196043943,1.11295196043943] 
-#scaling for Ku-band at 01/02/2021
-scaling=[1.058064]
-extrap_scaling = scaling.copy()
-#Give two indices from "scaling" corresponding to frequencies from "data" with known fluxes, rest will be averaged
-known_fluxes=[0,3]
-if len(scaling)>1:
-	for i in range(1,len(scaling)-1):#skip the first and last elements
-		extrap_scaling[i] = (extrap_scaling[i-1]+extrap_scaling[i]+extrap_scaling[i+1])/3
-		print(extrap_scaling[i])
-	#Ensure these go back to normal as they should be fixed
-	extrap_scaling[0]=scaling[0]
-	extrap_scaling[3]=scaling[3]
+#3C138 is flaring, so need values then apply scaling factor
+if '{cal_polangle}' == '3C138' or '{cal_polangle}' == 'J0521+1638':
+	data=np.loadtxt('3c138_2019.txt')
 
-print('Extrapolated scaling factors: ',extrap_scaling)
-popt_I,pcov=curve_fit(S,data[7:13,0],data[7:13,1]*scaling) #put extrap_scaling if there are multiple scaling factors
-print(data[7:13,0],data[7:13,1]*scaling)
-print("I@6GHz: ",popt_I[0], ' Jy')
-print("alpha: ",popt_I[1])
-print("beta", popt_I[2])
-print('Covariance: ',pcov)
+	#flaring scaling factor reported by nrao for 3C138 at S-band and C-band as of 01/12/2024
+	if '{band}' == 'C':
+		scaling=[1.030489,1.030489,1.11295196043943,1.11295196043943,1.11295196043943] 
+	if '{band}' == 'Ku':
+		#scaling for Ku-band at 01/02/2021
+		scaling=[1.058064]
 
-#Clear any plots that may exist
-plt.close()
-plt.plot(data[7:13,0],data[7:13,1]*scaling,'ro',label='data')
-plt.plot(np.arange(1,9,0.1),S(np.arange(1,9,0.1), *popt_I), 'r-', label='fit')
+	extrap_scaling = scaling.copy()
+	#Give two indices from "scaling" corresponding to frequencies from "data" with known fluxes, rest will be averaged
+	known_fluxes=[0,3]
+	if len(scaling)>1:
+		for i in range(1,len(scaling)-1):#skip the first and last elements
+			extrap_scaling[i] = (extrap_scaling[i-1]+extrap_scaling[i]+extrap_scaling[i+1])/3
+			print(extrap_scaling[i])
+		#Ensure these go back to normal as they should be fixed
+		extrap_scaling[0]=scaling[0]
+		extrap_scaling[3]=scaling[3]
+		scaling = extrap_scaling
+		print('Extrapolated scaling factors: ',extrap_scaling)
+	else:
+		#Don't scale
+		scaling=1.0
 
-plt.title('3C138')
-plt.legend()
-plt.xlabel('Frequency (GHz)')
-plt.ylabel('Flux Density (Jy)')
-plt.savefig('FluxvFreq.png')
+	if '{band}' == 'Ku':
+		row_min=7
+		row_max=13
+	if '{band}' == 'C':
+		row_min=4
+		row_max=7
+	popt_I,pcov=curve_fit(S,data[row_min:row_max,0],data[row_min:row_max,1]*scaling) 
+	print("I@6GHz: ",popt_I[0], ' Jy')
+	print("alpha: ",popt_I[1])
+	print("beta", popt_I[2])
+	print('Covariance: ',pcov)
+
+	#Clear any plots that may exist
+	plt.close()
+	plt.plot(data[row_min:row_max,0],data[row_min:row_max,1]*scaling,'ro',label='data')
+	plt.plot(np.arange(1,20,0.1),S(np.arange(1,20,0.1), *popt_I), 'r-', label='fit')
+
+	plt.title('3C138')
+	plt.legend()
+	plt.xlabel('Frequency (GHz)')
+	plt.ylabel('Flux Density (Jy)')
+	plt.savefig('FluxvFreq.png')
 
 
-popt_pf,pcov=curve_fit(PF,data[7:13,0],data[7:13,2])
-print("Polfrac Polynomial: ",popt_pf)
-print("Covariance: ", pcov)
-plt.close()
-plt.plot(data[7:13,0],data[7:13,2],'ro',label='data')
-plt.plot(np.arange(1,9,0.1),PF(np.arange(1,9,0.1), *popt_pf), 'r-', label='fit')
+	popt_pf,pcov=curve_fit(PF,data[row_min:row_max,0],data[row_min:row_max,2])
+	print("Polfrac Polynomial: ",popt_pf)
+	print("Covariance: ", pcov)
+	plt.close()
+	plt.plot(data[row_min:row_max,0],data[row_min:row_max,2],'ro',label='data')
+	plt.plot(np.arange(1,20,0.1),PF(np.arange(1,20,0.1), *popt_pf), 'r-', label='fit')
 
-plt.title('3C138')
-plt.legend()
-plt.xlabel('Frequency (GHz)')
-plt.ylabel('Lin. Pol. Fraction')
-plt.savefig('LinPolFracvFreq.png')
+	plt.title('3C138')
+	plt.legend()
+	plt.xlabel('Frequency (GHz)')
+	plt.ylabel('Lin. Pol. Fraction')
+	plt.savefig('LinPolFracvFreq.png')
 
-popt_pa,pcov=curve_fit(PA,data[7:13,0],data[7:13,3])
-print("Polangle Polynomial: ",popt_pa)
-print("Covariance: ", pcov)
-plt.close()
-plt.plot(data[7:13,0],data[7:13,3],'ro',label='data')
-plt.plot(np.arange(1,9,0.1),PA(np.arange(1,9,0.1), *popt_pa), 'r-', label='fit')
+	popt_pa,pcov=curve_fit(PA,data[row_min:row_max,0],data[row_min:row_max,3])
+	print("Polangle Polynomial: ",popt_pa)
+	print("Covariance: ", pcov)
+	plt.close()
+	plt.plot(data[row_min:row_max,0],data[row_min:row_max,3],'ro',label='data')
+	plt.plot(np.arange(1,20,0.1),PA(np.arange(1,20,0.1), *popt_pa), 'r-', label='fit')
 
-plt.title('3C138')
-plt.legend()
-plt.xlabel('Frequency (GHz)')
-plt.ylabel('Lin. Pol. Angle (rad)')
-plt.savefig('LinPolAnglevFreq.png')
-plt.close()
+	plt.title('3C138')
+	plt.legend()
+	plt.xlabel('Frequency (GHz)')
+	plt.ylabel('Lin. Pol. Angle (rad)')
+	plt.savefig('LinPolAnglevFreq.png')
+	plt.close()
 
-reffreq = '15.0GHz'
-I=popt_I[0]
-alpha=[popt_I[1],popt_I[2]]
-polfrac=popt_pf
-polangle=popt_pa
-print(polfrac,polangle)
+	I=popt_I[0]
+	alpha=[popt_I[1],popt_I[2]]
+	polfrac=popt_pf
+	polangle=popt_pa
+	print(polfrac,polangle)
+
+reffreq = '{cal_polangle_ref_freq}'
 
 #set model for polangle cal
 setjy(vis='{msout}',field='{cal_polangle}',scalebychan=True,standard="manual",model="",
-	listmodels=False,fluxdensity=[I,0,0,0],spix=alpha,reffreq=reffreq,polindex=polfrac,
+	listmodels=False,fluxdensity=[I,0,0,0],spix=alpha,reffreq='{cal_polangle_ref_freq}',polindex=polfrac,
 	polangle=polangle,rotmeas=0,fluxdict={fluxdict},useephemdir=False,interpolation='nearest',
 	usescratch=True, ismms=False)
 
 #Set model for leakage cal
-#Get from calibration weblog stage12/casapy.log
+#Get from calibration weblog pipeline-*/stage12/casapy.log
 setjy(vis='{msout}',field='{cal_leakage}',scalebychan=True,standard="manual",model="",
-	listmodels=False,fluxdensity=[27.1585,0,0,0],spix=[-0.263161,1.66251],reffreq='14.8976GHz',polindex=[],
+	listmodels=False,fluxdensity=[{cal_leakage_I_model},0,0,0],spix={cal_leakage_I_model_spix},reffreq='{cal_leakage_ref_freq}',polindex=[],
 	polangle=[],rotmeas=0,fluxdict={fluxdict},useephemdir=False,interpolation='nearest',
 	usescratch=True, ismms=False)
 
