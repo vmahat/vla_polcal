@@ -177,15 +177,19 @@ def PA(f,a,b,c,d,e,g):
 	return a+b*((f-{band_ref})/{band_ref})+c*((f-{band_ref})/{band_ref})**2+d*((f-{band_ref})/{band_ref})**3+e*((f-{band_ref})/{band_ref})**4+g*((f-{band_ref})/{band_ref})**5
 
 #3C138 is flaring, so need values then apply scaling factor
-if '{cal_polangle}' == '3C138' or '{cal_polangle}' == 'J0521+1638':
-	data=np.loadtxt('3c138_2019.txt')
-
-	#flaring scaling factor reported by nrao for 3C138 at S-band and C-band as of 01/12/2024
-	if '{band}' == 'C':
-		scaling=[1.030489,1.030489,1.11295196043943,1.11295196043943,1.11295196043943] 
-	if '{band}' == 'Ku':
-		#scaling for Ku-band at 01/02/2021
-		scaling=[1.058064]
+if '{cal_polangle}':
+	if '{cal_polangle}' == '3C138' or '{cal_polangle}' == 'J0521+1638':
+		data=np.loadtxt('3c138_2019.txt')
+		#flaring scaling factor reported by nrao for 3C138 at S-band and C-band as of 01/12/2024
+		if '{band}' == 'C':
+			scaling=[1.030489,1.030489,1.11295196043943,1.11295196043943,1.11295196043943] 
+		elif '{band}' == 'Ku':
+			#scaling for Ku-band at 01/02/2021
+			scaling=[1.058064]
+		else:
+			scaling=[1.0]
+	if '{cal_polangle}' == '3C48' or '{cal_polangle}' == 'J0137+3309':
+		data=np.loadtxt('3C48_2019.txt')
 
 	extrap_scaling = scaling.copy()
 	#Give two indices from "scaling" corresponding to frequencies from "data" with known fluxes, rest will be averaged
