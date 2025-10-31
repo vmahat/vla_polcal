@@ -60,6 +60,7 @@ cal_polangle = config.get("cal_polangle")
 cal_polangle_ref_freq = config.get("cal_polangle_ref_freq")
 target = config.get("target")
 skip_initcal = config.get('skip_initcal')
+refant = config.get('refant')
 
 if band=="Ku":
 	baseband_list=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32]
@@ -73,6 +74,12 @@ elif band=="C":
 	solve_bbc2 = '16~25:5~58'
 	solve_bbc3 = '26~31:5~58'
 	band_ref = 6.0
+elif band=="L":
+	baseband_list=[0,0,0,0,0,0,0,0,8,8,8,8,8,8,8,8]
+	solve_bbc1 = "0~7:5~58"
+	solve_bbc2 = "8~15:5~58"
+	solve_bbc3 = None
+	band_ref = 1.5
 
 casa_path = "/soft/casa-latest/bin/casa"
 
@@ -121,7 +128,7 @@ else:
 
 		#Calibrate on 3C147 as it's resolved, carrying previous caltables
 		gaincal(vis='{msin}', caltable='{cal_leakage_newgains}', field='{cal_leakage}', 
-			refant='ea23', 
+			refant='{refant}', 
 			spw='', gaintype='G',calmode='p', solint='int',
 			gaintable=['{msin}.hifv_priorcals.s5_2.gc.tbl', 
 		'{msin}.hifv_priorcals.s5_3.opac.tbl', 
@@ -175,7 +182,7 @@ import matplotlib.pyplot as plt
 
 #Need to set polangle calibrator model
 def S(f,S,alpha,beta):
-	return S*(f/{band_ref})**(alpha+beta*np.log10(f/{band_ref})) #find spectral index at 6 GHz
+	return S*(f/{band_ref})**(alpha+beta*np.log10(f/{band_ref})) #find spectral index at band_ref GHz
 def PF(f,a,b,c,d):
 	return a+b*((f-{band_ref})/{band_ref})+c*((f-{band_ref})/{band_ref})**2+d*((f-{band_ref})/{band_ref})**3
 def PA(f,a,b,c,d,e,g):
@@ -191,6 +198,8 @@ if '{cal_polangle}':
 		elif '{band}' == 'Ku':
 			#scaling for Ku-band at 01/02/2021
 			scaling=[1.058064]
+		elif '{band}' == 'L':
+			scaling=[1.009391] #value at 01.12.2024
 		else:
 			scaling=[1.0]
 	if '{cal_polangle}' == '3C48' or '{cal_polangle}' == 'J0137+3309':
@@ -219,6 +228,9 @@ if '{cal_polangle}':
 	if '{band}' == 'C':
 		row_min=2
 		row_max=9
+	if '{band}' == 'L':
+		row_min=0
+		row_max=5
 
 	popt_I,pcov=curve_fit(S,data[row_min:row_max,0],data[row_min:row_max,1]*scaling) 
 	print("I@6GHz: ",popt_I[0], ' Jy')
@@ -289,33 +301,35 @@ setjy(vis='{msout}',field='{cal_leakage}',scalebychan=True,standard="manual",mod
 #Solve for the RL phase difference on the reference antenna
 #Need to solve for each baseband at a time
 kcross_sbd = '{msout}.Kcross_sbd'
-gaincal(vis='{msout}', caltable=kcross_sbd,field='{cal_polangle}',spw='0~15:5~58', 
-	refant='ea23', 
+gaincal(vis='{msout}', caltable=kcross_sbd,field='{cal_polangle}',spw='{solve_bbc1}', 
+	refant='{refant}', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan',calmode='ap',append=False, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
-gaincal(vis='{msout}', caltable=kcross_sbd,field='{cal_polangle}',spw='16~25:5~58', 
-	refant='ea23', 
+gaincal(vis='{msout}', caltable=kcross_sbd,field='{cal_polangle}',spw='{solve_bbc2}', 
+	refant='{refant}', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan',calmode='ap',append=True, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
-gaincal(vis='{msout}', caltable=kcross_sbd,field='{cal_polangle}',spw='26~31:5~58', 
-	refant='ea23', 
-	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan',calmode='ap',append=True, gaintable='',
-	gainfield='',interp='', spwmap=[[]], parang=True)
+if '{solve_bbc3}':
+	gaincal(vis='{msout}', caltable=kcross_sbd,field='{cal_polangle}',spw='{solve_bbc3}', 
+		refant='{refant}', 
+		refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan',calmode='ap',append=True, gaintable='',
+		gainfield='',interp='', spwmap=[[]], parang=True)
 #Also try a multi-band solution (over all basebands):
 kcross_mbd = '{msout}.Kcross_mbd'
 
 gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='{solve_bbc1}', 
-	refant='ea23', 
+	refant='{refant}', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan,spw',calmode='ap',append=False, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
 gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='{solve_bbc2}', 
-	refant='ea23', 
+	refant='{refant}', 
 	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan,spw',calmode='ap',append=True, gaintable='',
 	gainfield='',interp='', spwmap=[[]], parang=True)
-gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='{solve_bbc3}', 
-	refant='ea23', 
-	refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan,spw',calmode='ap',append=True, gaintable='',
-	gainfield='',interp='', spwmap=[[]], parang=True)
+if '{solve_bbc3}':
+	gaincal(vis='{msout}', caltable=kcross_mbd,field='{cal_polangle}',spw='{solve_bbc3}', 
+		refant='{refant}', 
+		refantmode='flex', gaintype='KCROSS',solint='inf', combine='scan,spw',calmode='ap',append=True, gaintable='',
+		gainfield='',interp='', spwmap=[[]], parang=True)
 #Do this mbd as sbd solution looks too erratic
 #Now solve for leakages
 dtab = '{msout}.Df'
@@ -323,7 +337,7 @@ polcal(vis='{msout}',
        caltable=dtab,
        field='{cal_leakage}',
        spw='{final_spws}',
-       refant='ea23',
+       refant='{refant}',
        poltype='Df',
        solint='inf,2MHz',
        combine='scan',
@@ -335,7 +349,7 @@ polcal(vis='{msout}',
 xtab = '{msout}.Xf'
 polcal(vis='{msout}', caltable=xtab, spw='{final_spws}',
 field='{cal_polangle}', solint='inf,2MHz', combine='scan', poltype='Xf',
-refant = 'ea23',
+refant='{refant}',
 gaintable=[kcross_mbd,dtab],
 gainfield=['',''],
 spwmap=[{baseband_list},[]],
